@@ -5,7 +5,7 @@ const app = express();
 app.use(express.json());
 
 app.post("/call", async (req, res) => {
-  const { message } = req.body;
+  const message = req.body.message;
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
