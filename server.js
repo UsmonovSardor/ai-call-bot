@@ -12,19 +12,24 @@ const ZADARMA_SECRET = process.env.ZADARMA_API_SECRET?.trim();
 function buildParamsString(params = {}) {
   return Object.keys(params)
     .sort()
-    .map((key) => `${key}=${params[key]}`)
+    .map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
     .join("&");
 }
 
 function generateSignature(requestLine, params = {}) {
   const paramsStr = buildParamsString(params);
   const md5 = crypto.createHash("md5").update(paramsStr).digest("hex");
+
   const signString = requestLine + paramsStr + md5;
 
-  return crypto
+  // PHP hash_hmac default = hex string
+  const hmacHex = crypto
     .createHmac("sha1", ZADARMA_SECRET)
     .update(signString)
-    .digest("base64");
+    .digest("hex");
+
+  // PHP base64_encode(hash_hmac(...)) ga mos
+  return Buffer.from(hmacHex, "utf8").toString("base64");
 }
 
 app.get("/", (req, res) => {
