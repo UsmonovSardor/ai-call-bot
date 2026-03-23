@@ -10,8 +10,8 @@ const PORT = process.env.PORT;
 const ZADARMA_KEY = process.env.ZADARMA_API_KEY;
 const ZADARMA_SECRET = process.env.ZADARMA_API_SECRET;
 
+// 🔐 SIGNATURE FUNCTION (TO‘G‘RILANGAN)
 function generateSignature(method, url, params) {
- function generateSignature(method, url, params) {
   // 1. Paramlarni sort qilish
   const sortedKeys = Object.keys(params).sort();
 
@@ -37,21 +37,7 @@ function generateSignature(method, url, params) {
   return signature;
 }
 
-  const md5 = crypto
-    .createHash("md5")
-    .update(sorted)
-    .digest("hex");
-
-  const string = method + url + md5;
-
-  const signature = crypto
-    .createHmac("sha1", ZADARMA_SECRET)
-    .update(string)
-    .digest("base64");
-
-  return signature;
-}
-
+// 📞 CALL ENDPOINT
 app.post("/zadarma-call", async (req, res) => {
   try {
     const { from, to } = req.body;
@@ -87,12 +73,12 @@ app.post("/zadarma-call", async (req, res) => {
 
     return res.json(data);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error" });
+    console.error("SERVER ERROR:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-
+// 🚀 SERVER START
 app.listen(PORT, () => {
   console.log("Server running on port", PORT);
   console.log("KEY BORMI:", !!ZADARMA_KEY);
