@@ -18,11 +18,12 @@ function buildSortedParams(params) {
 
 function generateSignature(requestPath, params) {
   const paramsStr = buildSortedParams(params);
-  const hashString = requestPath + paramsStr + crypto.createHash("md5").update(paramsStr).digest("hex");
+  const md5 = crypto.createHash("md5").update(paramsStr).digest("hex");
+  const signString = requestPath + paramsStr + md5;
 
   return crypto
     .createHmac("sha1", ZADARMA_SECRET)
-    .update(hashString)
+    .update(signString)
     .digest("base64");
 }
 
@@ -42,19 +43,20 @@ app.post("/zadarma-call", async (req, res) => {
     const paramsStr = buildSortedParams(params);
     const signature = generateSignature(requestPath, params);
 
-    const url = `https://api.zadarma.com${requestPath}?${paramsStr}`;
-
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        Authorization: `${ZADARMA_KEY}:${signature}`,
-      },
-    });
+    const response = await fetch(
+      `https://api.zadarma.com${requestPath}?${paramsStr}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `${ZADARMA_KEY}:${signature}`,
+        },
+      }
+    );
 
     const data = await response.json();
     console.log("Zadarma response:", data);
 
-    return res.status(response.ok ? 200 : response.status).json(data);
+    return res.status(response.status).json(data);
   } catch (err) {
     console.error("SERVER ERROR:", err);
     return res.status(500).json({ error: err.message });
