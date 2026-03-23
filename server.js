@@ -11,7 +11,31 @@ const ZADARMA_KEY = process.env.ZADARMA_API_KEY;
 const ZADARMA_SECRET = process.env.ZADARMA_API_SECRET;
 
 function generateSignature(method, url, params) {
-  const sorted = new URLSearchParams(params).toString();
+ function generateSignature(method, url, params) {
+  // 1. Paramlarni sort qilish
+  const sortedKeys = Object.keys(params).sort();
+
+  const sortedParams = sortedKeys
+    .map(key => `${key}=${params[key]}`)
+    .join("&");
+
+  // 2. MD5
+  const md5 = crypto
+    .createHash("md5")
+    .update(sortedParams)
+    .digest("hex");
+
+  // 3. String
+  const string = method + url + md5;
+
+  // 4. HMAC SHA1
+  const signature = crypto
+    .createHmac("sha1", ZADARMA_SECRET)
+    .update(string)
+    .digest("base64");
+
+  return signature;
+}
 
   const md5 = crypto
     .createHash("md5")
