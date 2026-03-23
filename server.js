@@ -63,6 +63,38 @@ app.post("/zadarma-call", async (req, res) => {
   }
 });
 
+app.get("/zadarma-test", async (req, res) => {
+  try {
+    const requestPath = "/v1/info/balance/";
+    const params = {};
+
+    const paramsStr = "";
+    const md5 = crypto.createHash("md5").update(paramsStr).digest("hex");
+    const signString = requestPath + paramsStr + md5;
+
+    const signature = crypto
+      .createHmac("sha1", ZADARMA_SECRET)
+      .update(signString)
+      .digest("base64");
+
+    const response = await fetch(`https://api.zadarma.com${requestPath}`, {
+      method: "GET",
+      headers: {
+        Authorization: `${ZADARMA_KEY}:${signature}`,
+      },
+    });
+
+    const data = await response.json();
+    console.log("TEST RESPONSE:", data);
+
+    return res.status(response.status).json(data);
+  } catch (err) {
+    console.error("TEST ERROR:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+
 app.listen(PORT, () => {
   console.log("Server running on port", PORT);
   console.log("KEY BORMI:", !!ZADARMA_KEY);
