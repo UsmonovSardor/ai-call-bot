@@ -6,20 +6,20 @@ const app = express();
 app.use(express.json());
 
 const PORT = process.env.PORT;
-const ZADARMA_KEY = process.env.ZADARMA_API_KEY;
-const ZADARMA_SECRET = process.env.ZADARMA_API_SECRET;
+const ZADARMA_KEY = process.env.ZADARMA_API_KEY?.trim();
+const ZADARMA_SECRET = process.env.ZADARMA_API_SECRET?.trim();
 
-function buildSortedParams(params) {
+function buildQuery(params = {}) {
   return Object.keys(params)
     .sort()
-    .map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
+    .map((key) => `${key}=${params[key]}`)
     .join("&");
 }
 
-function generateSignature(requestPath, params) {
-  const paramsStr = buildSortedParams(params);
-  const md5 = crypto.createHash("md5").update(paramsStr).digest("hex");
-  const signString = requestPath + paramsStr + md5;
+function makeSignature(path, params = {}) {
+  const query = buildQuery(params);
+  const md5 = crypto.createHash("md5").update(query).digest("hex");
+  const signString = path + query + md5;
 
   return crypto
     .createHmac("sha1", ZADARMA_SECRET)
@@ -27,6 +27,29 @@ function generateSignature(requestPath, params) {
     .digest("base64");
 }
 
+// Auth test
+app.get("/zadarma-test", async (req, res) => {
+  try {
+    const path = "/v1/info/balance/";
+    const signature = makeSignature(path, {});
+
+    const response = await fetch(`https://api.zadarma.com${path}`, {
+      method: "GET",
+      headers: {
+        Authorization: `${ZADARMA_KEY}:${signature}`,
+      },
+    });
+
+    const data = await response.json();
+    console.log("TEST RESPONSE:", data);
+    return res.status(response.status).json(data);
+  } catch (err) {
+    console.error("TEST ERROR:", err);
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Callback
 app.post("/zadarma-call", async (req, res) => {
   try {
     let { from, to } = req.body;
@@ -38,46 +61,12 @@ app.post("/zadarma-call", async (req, res) => {
     from = String(from).trim();
     to = String(to).trim().replace(/^\+/, "");
 
-    const requestPath = "/v1/request/callback/";
+    const path = "/v1/request/callback/";
     const params = { from, to };
-    const paramsStr = buildSortedParams(params);
-    const signature = generateSignature(requestPath, params);
+    const query = buildQuery(params);
+    const signature = makeSignature(path, params);
 
-    const response = await fetch(
-      `https://api.zadarma.com${requestPath}?${paramsStr}`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `${ZADARMA_KEY}:${signature}`,
-        },
-      }
-    );
-
-    const data = await response.json();
-    console.log("Zadarma response:", data);
-
-    return res.status(response.status).json(data);
-  } catch (err) {
-    console.error("SERVER ERROR:", err);
-    return res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/zadarma-test", async (req, res) => {
-  try {
-    const requestPath = "/v1/info/balance/";
-    const params = {};
-
-    const paramsStr = "";
-    const md5 = crypto.createHash("md5").update(paramsStr).digest("hex");
-    const signString = requestPath + paramsStr + md5;
-
-    const signature = crypto
-      .createHmac("sha1", ZADARMA_SECRET)
-      .update(signString)
-      .digest("base64");
-
-    const response = await fetch(`https://api.zadarma.com${requestPath}`, {
+    const response = await fetch(`https://api.zadarma.com${path}?${query}`, {
       method: "GET",
       headers: {
         Authorization: `${ZADARMA_KEY}:${signature}`,
@@ -85,15 +74,13 @@ app.get("/zadarma-test", async (req, res) => {
     });
 
     const data = await response.json();
-    console.log("TEST RESPONSE:", data);
-
+    console.log("CALL RESPONSE:", data);
     return res.status(response.status).json(data);
   } catch (err) {
-    console.error("TEST ERROR:", err);
+    console.error("CALL ERROR:", err);
     return res.status(500).json({ error: err.message });
   }
 });
-
 
 app.listen(PORT, () => {
   console.log("Server running on port", PORT);
