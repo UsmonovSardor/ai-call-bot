@@ -1,6 +1,7 @@
 {
   "name": "ai-call-bot",
   "version": "1.0.0",
+  "description": "Zadarma + OpenAI call bot",
   "type": "module",
   "main": "server.js",
   "scripts": {
@@ -8,7 +9,7 @@
   },
   "dependencies": {
     "axios": "^1.7.0",
-    "crypto": "^1.0.1",
-    "express": "^4.21.0"
+    "express": "^4.21.0",
+    "openai": "^4.104.0"
   }
 }
