@@ -6,79 +6,61 @@ const app = express();
 app.use(express.json());
 
 const PORT = process.env.PORT;
-
 const ZADARMA_KEY = process.env.ZADARMA_API_KEY;
 const ZADARMA_SECRET = process.env.ZADARMA_API_SECRET;
 
-// 🔐 SIGNATURE FUNCTION (TO‘G‘RILANGAN)
-function generateSignature(method, url, params) {
-  // 1. Paramlarni sort qilish
-  const sortedKeys = Object.keys(params).sort();
-
-  const sortedParams = sortedKeys
-    .map(key => `${key}=${params[key]}`)
+function buildSortedParams(params) {
+  return Object.keys(params)
+    .sort()
+    .map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
     .join("&");
-
-  // 2. MD5
-  const md5 = crypto
-    .createHash("md5")
-    .update(sortedParams)
-    .digest("hex");
-
-  // 3. String
-  const string = method + url + md5;
-
-  // 4. HMAC SHA1
-  const signature = crypto
-    .createHmac("sha1", ZADARMA_SECRET)
-    .update(string)
-    .digest("base64");
-
-  return signature;
 }
 
-// 📞 CALL ENDPOINT
+function generateSignature(requestPath, params) {
+  const paramsStr = buildSortedParams(params);
+  const hashString = requestPath + paramsStr + crypto.createHash("md5").update(paramsStr).digest("hex");
+
+  return crypto
+    .createHmac("sha1", ZADARMA_SECRET)
+    .update(hashString)
+    .digest("base64");
+}
+
 app.post("/zadarma-call", async (req, res) => {
   try {
-    const { from, to } = req.body;
+    let { from, to } = req.body;
 
     if (!from || !to) {
       return res.status(400).json({ error: "from va to kerak" });
     }
 
-    const method = "POST";
-    const url = "/v1/request/callback/";
+    from = String(from).trim();
+    to = String(to).trim().replace(/^\+/, "");
 
-    const params = {
-      from,
-      to,
-    };
+    const requestPath = "/v1/request/callback/";
+    const params = { from, to };
+    const paramsStr = buildSortedParams(params);
+    const signature = generateSignature(requestPath, params);
 
-    const signature = generateSignature(method, url, params);
+    const url = `https://api.zadarma.com${requestPath}?${paramsStr}`;
 
-    const fullUrl = `https://api.zadarma.com${url}`;
-
-    const response = await fetch(fullUrl, {
-      method: "POST",
+    const response = await fetch(url, {
+      method: "GET",
       headers: {
         Authorization: `${ZADARMA_KEY}:${signature}`,
-        "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: new URLSearchParams(params),
     });
 
     const data = await response.json();
-
     console.log("Zadarma response:", data);
 
-    return res.json(data);
+    return res.status(response.ok ? 200 : response.status).json(data);
   } catch (err) {
     console.error("SERVER ERROR:", err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 });
 
-// 🚀 SERVER START
 app.listen(PORT, () => {
   console.log("Server running on port", PORT);
   console.log("KEY BORMI:", !!ZADARMA_KEY);
