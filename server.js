@@ -9,18 +9,21 @@ const PORT = process.env.PORT || 8080;
 const ZADARMA_KEY = process.env.ZADARMA_API_KEY?.trim();
 const ZADARMA_SECRET = process.env.ZADARMA_API_SECRET?.trim();
 
-function generateSignature(method, url, params = {}) {
-  const sorted = Object.keys(params)
+function buildParamsString(params = {}) {
+  return Object.keys(params)
     .sort()
     .map((key) => `${key}=${params[key]}`)
     .join("&");
+}
 
-  const md5 = crypto.createHash("md5").update(sorted).digest("hex");
-  const stringToSign = method + url + sorted + md5;
+function generateSignature(requestLine, params = {}) {
+  const paramsStr = buildParamsString(params);
+  const md5 = crypto.createHash("md5").update(paramsStr).digest("hex");
+  const signString = requestLine + paramsStr + md5;
 
   return crypto
     .createHmac("sha1", ZADARMA_SECRET)
-    .update(stringToSign)
+    .update(signString)
     .digest("base64");
 }
 
@@ -30,14 +33,13 @@ app.get("/", (req, res) => {
 
 app.get("/zadarma-test", async (req, res) => {
   try {
-    const method = "GET";
-    const url = "/v1/info/balance/";
+    const requestLine = "/v1/info/balance/";
     const params = {};
 
-    const signature = generateSignature(method, url, params);
+    const signature = generateSignature(requestLine, params);
     const auth = `${ZADARMA_KEY}:${signature}`;
 
-    const response = await axios.get(`https://api.zadarma.com${url}`, {
+    const response = await axios.get(`https://api.zadarma.com${requestLine}`, {
       headers: {
         Authorization: auth,
       },
@@ -45,15 +47,15 @@ app.get("/zadarma-test", async (req, res) => {
 
     res.json(response.data);
   } catch (err) {
-    res.status(err.response?.status || 500).json(err.response?.data || { error: err.message });
+    res
+      .status(err.response?.status || 500)
+      .json(err.response?.data || { error: err.message });
   }
 });
 
 app.post("/zadarma-call", async (req, res) => {
   try {
-    const method = "GET";
-    const url = "/v1/request/callback/";
-
+    const requestLine = "/v1/request/callback/";
     const params = {
       from: String(req.body.from || "").trim(),
       to: String(req.body.to || "").trim().replace(/^\+/, ""),
@@ -63,10 +65,10 @@ app.post("/zadarma-call", async (req, res) => {
       return res.status(400).json({ error: "from va to kerak" });
     }
 
-    const signature = generateSignature(method, url, params);
+    const signature = generateSignature(requestLine, params);
     const auth = `${ZADARMA_KEY}:${signature}`;
 
-    const response = await axios.get(`https://api.zadarma.com${url}`, {
+    const response = await axios.get(`https://api.zadarma.com${requestLine}`, {
       params,
       headers: {
         Authorization: auth,
@@ -75,7 +77,9 @@ app.post("/zadarma-call", async (req, res) => {
 
     res.json(response.data);
   } catch (err) {
-    res.status(err.response?.status || 500).json(err.response?.data || { error: err.message });
+    res
+      .status(err.response?.status || 500)
+      .json(err.response?.data || { error: err.message });
   }
 });
 
