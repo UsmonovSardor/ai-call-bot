@@ -1,0 +1,46 @@
+<!DOCTYPE html><html lang="uz"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>AI Operator Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>*{box-sizing:border-box;margin:0;padding:0}:root{--bg:#080b14;--s:#0e1420;--b:rgba(99,210,255,.12);--a:#63d2ff;--a2:#7b6ff0;--g:#4ade80;--m:#5a6a8a;--t:#e2eeff}body{background:var(--bg);color:var(--t);font-family:'Syne',sans-serif;min-height:100vh}body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(99,210,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(99,210,255,.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none}.wrap{max-width:1100px;margin:0 auto;padding:0 20px}header{padding:24px 0;border-bottom:1px solid var(--b);background:rgba(8,11,20,.9);position:sticky;top:0;z-index:10}.hdr{display:flex;align-items:center;justify-content:space-between}.logo{display:flex;align-items:center;gap:12px}.li{width:38px;height:38px;background:linear-gradient(135deg,var(--a),var(--a2));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px}.lt{font-size:18px;font-weight:800}.ls{font-size:10px;color:var(--m);font-family:'JetBrains Mono',monospace}.pill{display:flex;align-items:center;gap:8px;background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.25);padding:5px 12px;border-radius:100px;font-size:12px;color:var(--g);font-family:'JetBrains Mono',monospace}.dot{width:7px;height:7px;background:var(--g);border-radius:50%;animation:p 2s infinite}@keyframes p{0%,100%{opacity:1}50%{opacity:.3}}main{padding:32px 0}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:28px}.card{background:var(--s);border:1px solid var(--b);border-radius:14px;padding:20px;transition:.2s}.card:hover{border-color:rgba(99,210,255,.3);transform:translateY(-2px)}.ci{font-size:22px;margin-bottom:10px}.cv{font-size:32px;font-weight:800;letter-spacing:-1px;background:linear-gradient(135deg,#fff,var(--a));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:4px}.cl{font-size:11px;color:var(--m);font-family:'JetBrains Mono',monospace}.cgrid{display:grid;grid-template-columns:1fr 340px;gap:16px}@media(max-width:800px){.cgrid{grid-template-columns:1fr}}.panel{background:var(--s);border:1px solid var(--b);border-radius:14px;overflow:hidden;margin-bottom:14px}.ph{padding:14px 20px;border-bottom:1px solid var(--b);display:flex;align-items:center;justify-content:space-between}.pt{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--a)}.pb{padding:18px}.ci2{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--b)}.ci2:last-child{border-bottom:none}.cn{font-family:'JetBrains Mono',monospace;font-size:13px}.ct{font-size:10px;color:var(--m);margin-top:2px}.cd{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--a)}.ba{background:rgba(74,222,128,.1);color:var(--g);border:1px solid rgba(74,222,128,.3)}.be{background:rgba(90,106,138,.1);color:var(--m);border:1px solid var(--b)}.badge{display:inline-block;padding:2px 8px;border-radius:100px;font-size:10px;font-family:'JetBrains Mono',monospace}.empty{text-align:center;padding:30px;color:var(--m);font-family:'JetBrains Mono',monospace;font-size:12px}.ir{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--b)}.ir:last-child{border-bottom:none}.ik{font-size:11px;color:var(--m);font-family:'JetBrains Mono',monospace}.iv{font-size:12px;font-weight:600;font-family:'JetBrains Mono',monospace;color:var(--a);word-break:break-all;max-width:180px;text-align:right}.btn{background:transparent;border:1px solid var(--b);color:var(--m);padding:4px 10px;border-radius:7px;font-family:'JetBrains Mono',monospace;font-size:11px;cursor:pointer;transition:.2s}.btn:hover{border-color:var(--a);color:var(--a)}</style></head>
+<body><header><div class="wrap"><div class="hdr"><div class="logo"><div class="li">&#129302;</div><div><div class="lt">AI Operator</div><div class="ls">OPENAI GPT-4o + VAPI</div></div></div><div class="pill"><div class="dot"></div><span id="st">ONLINE</span></div></div></div></header>
+<main><div class="wrap">
+<div class="grid">
+<div class="card"><div class="ci">&#128222;</div><div class="cv" id="tc">0</div><div class="cl">JAMI QO'NG'IROQLAR</div></div>
+<div class="card"><div class="ci">&#128308;</div><div class="cv" id="ac">0</div><div class="cl">HOZIR FAOL</div></div>
+<div class="card"><div class="ci">&#9200;</div><div class="cv" id="ad">0</div><div class="cl">O'RT. DAVOMIYLIK (S)</div></div>
+<div class="card"><div class="ci">&#9889;</div><div class="cv" id="up">0</div><div class="cl">UPTIME (S)</div></div>
+</div>
+<div class="cgrid">
+<div class="panel"><div class="ph"><span class="pt">&#128203; Qo'ng'iroqlar tarixi</span><button class="btn" onclick="load()">&#8635; Yangilash</button></div><div class="pb"><div id="ah"></div><div id="ch"></div></div></div>
+<div><div class="panel"><div class="ph"><span class="pt">&#129302; Operator</span></div><div class="pb">
+<div class="ir"><span class="ik">NOMI</span><span class="iv" id="on">...</span></div>
+<div class="ir"><span class="ik">MODEL</span><span class="iv" id="om">...</span></div>
+<div class="ir"><span class="ik">KOMPANIYA</span><span class="iv" id="oc">...</span></div>
+<div class="ir"><span class="ik">HOLAT</span><span class="iv"><span class="badge ba">TAYYOR</span></span></div>
+</div></div>
+<div class="panel"><div class="ph"><span class="pt">&#128299; API URLs</span></div><div class="pb">
+<div class="ir"><span class="ik">LLM URL</span><span class="iv" id="lu">...</span></div>
+<div class="ir"><span class="ik">WEBHOOK</span><span class="iv" id="wu">...</span></div>
+<div class="ir"><span class="ik">HEALTH</span><span class="iv" id="hu">...</span></div>
+</div></div></div>
+</div></div></main>
+<script>
+const B=location.origin;
+document.getElementById('lu').textContent=B+'/chat/completions';
+document.getElementById('wu').textContent=B+'/webhook';
+document.getElementById('hu').textContent=B+'/health';
+async function load(){
+try{
+const[s,c]=await Promise.all([fetch('/api/stats').then(r=>r.json()),fetch('/api/calls').then(r=>r.json())]);
+document.getElementById('tc').textContent=s.totalCalls;
+document.getElementById('ac').textContent=s.activeCalls;
+document.getElementById('ad').textContent=s.avgDuration;
+document.getElementById('up').textContent=s.uptime;
+document.getElementById('on').textContent=s.operatorName;
+document.getElementById('om').textContent=s.model;
+document.getElementById('oc').textContent=s.companyName;
+document.getElementById('ah').innerHTML=c.active.map(x=>'<div class="ci2"><div><div class="cn">'+x.callerNumber+'</div><div class="ct">'+new Date(x.startTime).toLocaleTimeString()+'</div></div><span class="badge ba">JONLI</span></div>').join('');
+document.getElementById('ch').innerHTML=c.history.length===0?'<div class="empty">&#128235; Hozircha qo\'ng\'iroq yo\'q...</div>':c.history.slice(0,15).map(x=>'<div class="ci2"><div><div class="cn">'+x.callerNumber+'</div><div class="ct">'+new Date(x.startTime).toLocaleString()+'</div></div><div style="text-align:right"><div class="cd">'+x.duration+'s</div><span class="badge be">'+x.endReason+'</span></div></div>').join('');
+}catch(e){document.getElementById('st').textContent='OFFLINE';}
+}
+load();setInterval(load,5000);
+</script></body></html>
