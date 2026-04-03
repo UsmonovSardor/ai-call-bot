@@ -1,240 +1,114 @@
-import express from "express";
-import crypto from "crypto";
-import axios from "axios";
-import OpenAI from "openai";
+const express = require('express');
+const OpenAI = require('openai');
+const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
 
 const app = express();
-app.use(express.json({ limit: "1mb" }));
+app.use(helmet({ contentSecurityPolicy: false }));
+app.use(cors());
+app.use(morgan('combined'));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.static('public'));
 
-const PORT = process.env.PORT || 8080;
-const ZADARMA_KEY = process.env.ZADARMA_API_KEY?.trim();
-const ZADARMA_SECRET = process.env.ZADARMA_API_SECRET?.trim();
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY?.trim();
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-const openai = new OpenAI({
-  apiKey: OPENAI_API_KEY,
-});
+const buildSystemPrompt = () => `
+Sen ${process.env.OPERATOR_NAME || 'Aria'} - professional AI ovoz operatorsisan.
+Kompaniya: ${process.env.COMPANY_NAME || 'Kompaniya'}
+Lavozim: ${process.env.OPERATOR_ROLE || 'Mijozlarga xizmat ko\'rsatuvchi mutaxassis'}
 
-function buildParamsString(params = {}) {
-  return Object.keys(params)
-    .sort()
-    .map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(params[key])}`)
-    .join("&");
-}
+ASOSIY QOIDALAR:
+- Malakali inson operator kabi tabiiy, iliq va professional gapirasан
+- Javoblarni QISQA va SUHBATLI qil (ovoz uchun max 2-3 gap)
+- Agar to\'g\'ridan to\'g\'ri so\'ralmasa, AI ekanligingni aytma
+- Tabiiy nutq ishla: "Albatta!", "Yaxshi savol!", "Yordam beraman"
+- Ro\'yxat yoki nuqtalar ishlatma - oddiy gaplar bilan so\'yla
+- Mijoz qaysi tilda gapirsa - o\'sha tilda javob ber (O\'zbek, Rus yoki Ingliz)
 
-function generateSignature(requestLine, params = {}) {
-  if (!ZADARMA_SECRET) {
-    throw new Error("ZADARMA_API_SECRET topilmadi");
-  }
-  const paramsStr = buildParamsString(params);
-  const md5 = crypto.createHash("md5").update(paramsStr).digest("hex");
-  const signString = requestLine + paramsStr + md5;
-  const hmacHex = crypto
-    .createHmac("sha1", ZADARMA_SECRET)
-    .update(signString)
-    .digest("hex");
-  return Buffer.from(hmacHex, "utf8").toString("base64");
-}
+Kompaniya haqida:
+${process.env.COMPANY_INFO || 'Biz sifatli xizmat ko\'rsatamiz.'}
+`.trim();
 
-function normalizePhone(value) {
-  return String(value || "").trim().replace(/^\+/, "");
-}
+const activeCalls = new Map();
+const callLogs = [];
 
-app.get("/", (req, res) => {
-  res.json({
-    ok: true,
-    service: "ai-call-bot",
-    endpoints: [
-      "GET /",
-      "GET /health",
-      "GET /zadarma-test",
-      "POST /zadarma-call",
-      "POST /ai",
-    ],
-  });
-});
-
-app.get("/health", (req, res) => {
-  res.json({
-    ok: true,
-    zadarmaConfigured: Boolean(ZADARMA_KEY && ZADARMA_SECRET),
-    openaiConfigured: Boolean(OPENAI_API_KEY),
-  });
-});
-
-app.get("/zadarma-test", async (req, res) => {
+// VAPI Custom LLM Endpoint - OpenAI Compatible
+app.post('/chat/completions', async (req, res) => {
   try {
-    if (!ZADARMA_KEY || !ZADARMA_SECRET) {
-      return res.status(500).json({ error: "ZADARMA API key yoki secret yoq" });
-    }
-    const requestLine = "/v1/info/balance/";
-    const params = {};
-    const signature = generateSignature(requestLine, params);
-    const auth = `${ZADARMA_KEY}:${signature}`;
-    const response = await axios.get(`https://api.zadarma.com${requestLine}`, {
-      headers: {
-        Authorization: auth,
-      },
-      timeout: 15000,
-    });
-    console.log("BALANCE RESPONSE:", response.data);
-    res.json(response.data);
-  } catch (err) {
-    console.error("TEST ERROR:", err.response?.data || err.message);
-    res
-      .status(err.response?.status || 500)
-      .json(err.response?.data || { error: err.message });
-  }
-});
+    const { messages, stream, temperature, max_tokens } = req.body;
+    const systemMessage = { role: 'system', content: buildSystemPrompt() };
+    const fullMessages = messages[0]?.role === 'system' ? messages : [systemMessage, ...messages];
 
-app.post("/zadarma-call", async (req, res) => {
-  try {
-    console.log("BODY:", req.body);
-    if (!ZADARMA_KEY || !ZADARMA_SECRET) {
-      return res.status(500).json({ error: "ZADARMA API key yoki secret yoq" });
-    }
-    const requestLine = "/v1/request/callback/";
     const params = {
-      from: normalizePhone(req.body.from),
-      to: normalizePhone(req.body.to),
+      model: process.env.OPENAI_MODEL || 'gpt-4o',
+      messages: fullMessages,
+      temperature: temperature || 0.7,
+      max_tokens: max_tokens || 200,
     };
-    console.log("NORMALIZED PARAMS:", params);
-    if (!params.from || !params.to) {
-      return res.status(400).json({
-        error: "from va to kerak",
-        received: req.body,
-      });
+
+    if (stream) {
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+      res.setHeader('X-Accel-Buffering', 'no');
+      const s = await openai.chat.completions.create({ ...params, stream: true });
+      for await (const chunk of s) {
+        if (res.destroyed) break;
+        res.write('data: ' + JSON.stringify(chunk) + '\n\n');
+      }
+      res.write('data: [DONE]\n\n');
+      res.end();
+    } else {
+      const response = await openai.chat.completions.create(params);
+      res.json(response);
     }
-    const signature = generateSignature(requestLine, params);
-    const auth = `${ZADARMA_KEY}:${signature}`;
-    console.log("REQUEST LINE:", requestLine);
-    console.log("PARAMS STRING:", buildParamsString(params));
-    const response = await axios.get(`https://api.zadarma.com${requestLine}`, {
-      params,
-      headers: {
-        Authorization: auth,
-      },
-      timeout: 20000,
-    });
-    console.log("ZADARMA RESPONSE:", response.data);
-    res.json({
-      ok: true,
-      provider: "zadarma",
-      ...response.data,
-    });
-  } catch (err) {
-    console.error("ZADARMA ERROR:", err.response?.data || err.message);
-    res
-      .status(err.response?.status || 500)
-      .json(err.response?.data || { error: err.message });
+  } catch (e) {
+    console.error('[LLM Error]', e.message);
+    res.status(500).json({ error: { message: e.message } });
   }
 });
 
-/**
- * POST /ai
- * body:
- * {
- *   "text": "Salom, men broker bilan gaplashmoqchiman",
- *   "systemPrompt": "optional"
- * }
- */
-app.post("/ai", async (req, res) => {
-  try {
-    if (!OPENAI_API_KEY) {
-      return res.status(500).json({ error: "OPENAI_API_KEY yoq" });
+// VAPI Webhook
+app.post('/webhook', (req, res) => {
+  const { type, call } = req.body;
+  console.log('[Webhook]', type, call?.id);
+  if (type === 'call-started' && call) {
+    activeCalls.set(call.id, { id: call.id, startTime: new Date().toISOString(), callerNumber: call.customer?.number || 'Unknown', status: 'active' });
+  } else if (type === 'call-ended' && call) {
+    const c = activeCalls.get(call.id);
+    if (c) {
+      c.status = 'ended';
+      c.endTime = new Date().toISOString();
+      c.duration = Math.round((Date.now() - new Date(c.startTime)) / 1000);
+      c.endReason = call.endedReason || 'ended';
+      callLogs.push({ ...c });
+      activeCalls.delete(call.id);
     }
-    const userText = String(req.body.text || "").trim();
-    const systemPrompt =
-      String(req.body.systemPrompt || "").trim() ||
-      "You are a phone call assistant. Reply briefly, naturally, and clearly. Keep answers short enough for voice calls.";
-    if (!userText) {
-      return res.status(400).json({ error: "text kerak" });
-    }
-    const response = await openai.responses.create({
-      model: "gpt-5.4-mini",
-      input: [
-        {
-          role: "system",
-          content: systemPrompt,
-        },
-        {
-          role: "user",
-          content: userText,
-        },
-      ],
-    });
-    const reply =
-      response.output_text ||
-      "Kechirasiz, hozir javob tayyor bo'lmadi. Iltimos, qayta urinib ko'ring.";
-    console.log("AI INPUT:", userText);
-    console.log("AI REPLY:", reply);
-    res.json({
-      ok: true,
-      reply,
-      model: response.model,
-    });
-  } catch (err) {
-    console.error("OPENAI ERROR:", err);
-    res.status(500).json({
-      error: err?.message || "OpenAI xatosi",
-    });
   }
+  res.json({ success: true });
 });
 
-/**
- * BONUS:
- * bitta endpointda AI javob qaytaradi va xohlasang keyin n8n bilan ulaysan
- * POST /ai-call-preview
- * body:
- * {
- *   "customerText": "Salom",
- *   "from": "99890....",
- *   "to": "99891...."
- * }
- */
-app.post("/ai-call-preview", async (req, res) => {
-  try {
-    if (!OPENAI_API_KEY) {
-      return res.status(500).json({ error: "OPENAI_API_KEY yoq" });
-    }
-    const customerText = String(req.body.customerText || "").trim();
-    const from = normalizePhone(req.body.from);
-    const to = normalizePhone(req.body.to);
-    if (!customerText) {
-      return res.status(400).json({ error: "customerText kerak" });
-    }
-    const response = await openai.responses.create({
-      model: "gpt-5.4-mini",
-      input: [
-        {
-          role: "system",
-          content:
-            "You are an Uzbek phone call assistant. Reply in Uzbek, short, polite, and natural. Keep it suitable for speaking aloud.",
-        },
-        {
-          role: "user",
-          content: customerText,
-        },
-      ],
-    });
-    const reply =
-      response.output_text ||
-      "Kechirasiz, hozir javob bera olmayapman. Iltimos, keyinroq urinib ko'ring.";
-    res.json({
-      ok: true,
-      from,
-      to,
-      customerText,
-      aiReply: reply,
-    });
-  } catch (err) {
-    console.error("AI CALL PREVIEW ERROR:", err);
-    res.status(500).json({
-      error: err?.message || "AI call preview xatosi",
-    });
-  }
+// Stats API
+app.get('/api/stats', (req, res) => {
+  res.json({
+    totalCalls: callLogs.length,
+    activeCalls: activeCalls.size,
+    avgDuration: callLogs.length > 0 ? Math.round(callLogs.reduce((s, c) => s + (c.duration || 0), 0) / callLogs.length) : 0,
+    operatorName: process.env.OPERATOR_NAME || 'Aria',
+    companyName: process.env.COMPANY_NAME || 'Kompaniya',
+    model: process.env.OPENAI_MODEL || 'gpt-4o',
+    uptime: Math.round(process.uptime()),
+  });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+app.get('/api/calls', (req, res) => {
+  res.json({ active: Array.from(activeCalls.values()), history: callLogs.slice(-50).reverse() });
 });
+
+app.get('/health', (req, res) => {
+  res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, '0.0.0.0', () => console.log('AI Operator running on port', PORT));
